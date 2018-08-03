@@ -1,6 +1,7 @@
 package com.example.youngtalent61115.ocrexample
 
 import android.Manifest
+import android.content.Context
 import android.support.v7.app.AppCompatActivity
 import android.os.Bundle
 import com.google.android.gms.vision.text.TextBlock
@@ -8,22 +9,61 @@ import com.google.android.gms.vision.Detector
 import android.view.SurfaceHolder
 import android.support.v4.app.ActivityCompat
 import android.content.pm.PackageManager
+import android.hardware.Camera
 import android.util.Log
-import com.google.android.gms.vision.CameraSource
+
 import com.google.android.gms.vision.text.TextRecognizer
 import kotlinx.android.synthetic.main.activity_main.*
 import java.io.IOException
+import android.os.VibrationEffect
+import android.os.Build
+import android.content.Context.VIBRATOR_SERVICE
+import android.support.v4.content.ContextCompat.getSystemService
+import android.os.Vibrator
+import android.view.View
 
 
 class MainActivity : AppCompatActivity() {
 
     lateinit var mCameraSource : CameraSource
 
+    private val RC_HANDLE_CAMERA_PERM = 2
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        startCameraSource()
+
+        val rc = ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+        if (rc == PackageManager.PERMISSION_GRANTED) {
+            startCameraSource()
+        } else {
+            requestCameraPermission()
+        }
+
+    }
+
+    private fun requestCameraPermission() {
+
+        val permissions = arrayOf(Manifest.permission.CAMERA)
+
+        if (!ActivityCompat.shouldShowRequestPermissionRationale(this,
+                        Manifest.permission.CAMERA)) {
+            ActivityCompat.requestPermissions(this, permissions, RC_HANDLE_CAMERA_PERM)
+            return
+        }
+
+        val thisActivity = this
+        View.OnClickListener {
+            ActivityCompat.requestPermissions(thisActivity, permissions,
+                    RC_HANDLE_CAMERA_PERM)
+        }
+    }
+
+
+    private fun vibration() {
+        val vibratorService = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+        vibratorService.vibrate(500)
     }
 
     private fun startCameraSource() {
@@ -37,8 +77,9 @@ class MainActivity : AppCompatActivity() {
             //Initialize camerasource to use high resolution and set Autofocus on.
             mCameraSource = CameraSource.Builder(applicationContext, textRecognizer)
                     .setFacing(CameraSource.CAMERA_FACING_BACK)
-                    .setAutoFocusEnabled(true)
-                    .setRequestedFps(60.0f)
+                    .setRequestedPreviewSize(1280, 1024)
+                    .setRequestedFps(10.0f)
+                    .setFocusMode(Camera.Parameters.FOCUS_MODE_CONTINUOUS_PICTURE)
                     .build()
 
             /**
@@ -101,16 +142,19 @@ class MainActivity : AppCompatActivity() {
 
                             val line = stringBuilder.toString()
                             val words = line.split("\\W+".toRegex()).dropLastWhile { it.isEmpty() }.toTypedArray()
-                            var string = ""
                             var replaceString: String
                             try {
+
+                                var string = ""
                                 if (words.size >= 2) {
                                     string = words[0] + words[1] + words[2]
+                                    Log.d("beer","$string")
                                 }
                                 if (string.length == 12) {
                                     replaceString = string.replace('O', '0')//replaces all occurrences of a to e
                                     text_view.text = replaceString
                                     Log.d("beer","$replaceString")
+                                    vibration()
                                 }
 
                             } catch (e : Exception) {
@@ -122,6 +166,7 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
             })
+
         }
     }
 }
